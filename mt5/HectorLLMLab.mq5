@@ -1,5 +1,5 @@
 #property strict
-#property version   "0.01"
+#property version   "0.02"
 #property description "Lesson 01 - send a market snapshot to the Python bridge"
 
 input string BridgeUrl = "http://127.0.0.1:8010/snapshot";
@@ -33,7 +33,12 @@ void SendSnapshot()
       spread_points = (tick.ask - tick.bid) / point;
 
    string position = PositionSelect(_Symbol) ? "OPEN" : "NONE";
-   string timestamp = TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS);
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   string timestamp = StringFormat(
+      "%04d-%02d-%02dT%02d:%02d:%02d",
+      dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec
+   );
 
    string body = StringFormat(
       "{\"symbol\":\"%s\",\"timeframe\":\"%s\",\"bid\":%.10f,\"ask\":%.10f,\"spread_points\":%.2f,\"position\":\"%s\",\"timestamp\":\"%s\"}",
