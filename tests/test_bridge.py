@@ -10,10 +10,18 @@ def sample_snapshot() -> dict:
         "symbol": "XAUUSD_l",
         "timeframe": "PERIOD_M15",
         "market": {"bid": 4353.67, "ask": 4354.09, "spread_points": 42},
-        "last_closed_candle": {
-            "open": 4358.10, "high": 4359.40, "low": 4352.80,
-            "close": 4353.67, "tick_volume": 1842,
-        },
+        "candles": [
+            {
+                "time": "2026-09-22T06:45:00",
+                "open": 4356.0, "high": 4358.0, "low": 4354.0,
+                "close": 4357.0, "tick_volume": 1600,
+            },
+            {
+                "time": "2026-09-22T07:00:00",
+                "open": 4357.0, "high": 4359.4, "low": 4352.8,
+                "close": 4353.67, "tick_volume": 1842,
+            },
+        ],
         "account": {"balance": 1000.0, "equity": 998.5, "free_margin": 950.2},
         "position": {
             "status": "NONE", "type": "NONE", "volume": 0.0,
@@ -30,7 +38,7 @@ def test_health() -> None:
     assert response.json()["lesson"] == "02"
 
 
-def test_snapshot_returns_wait_and_is_available_as_latest() -> None:
+def test_snapshot_returns_wait_and_preserves_candle_sequence() -> None:
     snapshot = sample_snapshot()
     response = client.post("/snapshot", json=snapshot)
     assert response.status_code == 200
@@ -40,5 +48,6 @@ def test_snapshot_returns_wait_and_is_available_as_latest() -> None:
     assert latest.status_code == 200
     payload = latest.json()
     assert payload["symbol"] == "XAUUSD_l"
-    assert payload["last_closed_candle"]["tick_volume"] == 1842
+    assert len(payload["candles"]) == 2
+    assert payload["candles"][-1]["close"] == 4353.67
     assert payload["account"]["balance"] == 1000.0
