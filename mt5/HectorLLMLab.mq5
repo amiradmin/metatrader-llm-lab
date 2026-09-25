@@ -1,9 +1,10 @@
 #property strict
-#property version   "0.10"
-#property description "Lesson 02 - send a rich market snapshot to the Python bridge"
+#property version   "0.11"
+#property description "Lesson 02 - send market history to the Python bridge"
 
 input string BridgeUrl = "http://127.0.0.1:8010/snapshot";
 input int    TimerSeconds = 15;
+input int    HistoryBars = 20;
 
 string TimeframeName()
 {
@@ -35,12 +36,29 @@ void SendSnapshot()
       return;
    }
 
-   MqlRates rates[1];
-   if(CopyRates(_Symbol, (ENUM_TIMEFRAMES)_Period, 1, 1, rates) != 1)
+   int bars_requested = (int)MathMax(1, MathMin(200, HistoryBars));
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+   int copied = CopyRates(_Symbol, (ENUM_TIMEFRAMES)_Period, 1, bars_requested, rates);
+   if(copied <= 0)
    {
       Print("HECTOR LLM LAB | CopyRates failed | error=", GetLastError());
       return;
    }
+
+   string candles_json = "[";
+   for(int i = copied - 1; i >= 0; i--)
+   {
+      if(i < copied - 1)
+         candles_json += ",";
+
+      candles_json += StringFormat(
+         "{\"time\":\"%s\",\"open\":%.10f,\"high\":%.10f,\"low\":%.10f,\"close\":%.10f,\"tick_volume\":%I64d}",
+         IsoTimestamp(rates[i].time),
+         rates[i].open, rates[i].high, rates[i].low, rates[i].close, rates[i].tick_volume
+      );
+   }
+   candles_json += "]";
 
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    double spread_points = 0.0;
@@ -70,13 +88,13 @@ void SendSnapshot()
    string body = StringFormat(
       "{\"symbol\":\"%s\",\"timeframe\":\"%s\","
       "\"market\":{\"bid\":%.10f,\"ask\":%.10f,\"spread_points\":%.2f},"
-      "\"last_closed_candle\":{\"open\":%.10f,\"high\":%.10f,\"low\":%.10f,\"close\":%.10f,\"tick_volume\":%I64d},"
+      "\"candles\":%s,"
       "\"account\":{\"balance\":%.8f,\"equity\":%.8f,\"free_margin\":%.8f},"
       "\"position\":{\"status\":\"%s\",\"type\":\"%s\",\"volume\":%.8f,\"open_price\":%.10f,\"profit\":%.8f},"
       "\"timestamp\":\"%s\"}",
       JsonEscape(_Symbol), JsonEscape(TimeframeName()),
       tick.bid, tick.ask, spread_points,
-      rates[0].open, rates[0].high, rates[0].low, rates[0].close, rates[0].tick_volume,
+      candles_json,
       balance, equity, free_margin,
       position_status, position_type, position_volume, position_open_price, position_profit,
       IsoTimestamp(TimeCurrent())
@@ -100,7 +118,8 @@ void SendSnapshot()
 
    string response_text = CharArrayToString(response, 0, -1, CP_UTF8);
    Print("HECTOR LLM LAB | HTTP=", status,
-         " | lesson=02 | symbol=", _Symbol,
+         " | lesson=02 | bars=", copied,
+         " | symbol=", _Symbol,
          " | timeframe=", TimeframeName(),
          " | response=", response_text);
 }
@@ -108,7 +127,8 @@ void SendSnapshot()
 int OnInit()
 {
    EventSetTimer((int)MathMax(1, TimerSeconds));
-   Print("HECTOR LLM LAB | Lesson 02 started | bridge=", BridgeUrl);
+   Print("HECTOR LLM LAB | Lesson 02 history started | bars=", HistoryBars,
+         " | bridge=", BridgeUrl);
    SendSnapshot();
    return INIT_SUCCEEDED;
 }
