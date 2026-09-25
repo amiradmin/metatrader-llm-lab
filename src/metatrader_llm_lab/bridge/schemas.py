@@ -11,6 +11,7 @@ class MarketData(BaseModel):
 
 
 class CandleData(BaseModel):
+    time: datetime
     open: float
     high: float
     low: float
@@ -36,7 +37,7 @@ class MarketSnapshot(BaseModel):
     symbol: str = Field(min_length=1)
     timeframe: str = Field(min_length=1)
     market: MarketData
-    last_closed_candle: CandleData
+    candles: list[CandleData] = Field(min_length=1, max_length=200)
     account: AccountData
     position: PositionData
     timestamp: datetime
