@@ -8,28 +8,31 @@ client = TestClient(app)
 
 
 def sample_snapshot() -> dict:
+    candles = []
+    for i in range(11):
+        close = 100.0 + i
+        candles.append(
+            {
+                "time": f"2026-09-22T{6 + i // 4:02d}:{(i % 4) * 15:02d}:00",
+                "open": close - 0.5,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "tick_volume": 1000 + i * 10,
+            }
+        )
+
     return {
         "symbol": "XAUUSD_l",
         "timeframe": "PERIOD_M15",
-        "market": {"bid": 4353.67, "ask": 4354.09, "spread_points": 42},
-        "candles": [
-            {
-                "time": "2026-09-22T06:45:00",
-                "open": 4356.0, "high": 4358.0, "low": 4354.0,
-                "close": 4357.0, "tick_volume": 1600,
-            },
-            {
-                "time": "2026-09-22T07:00:00",
-                "open": 4357.0, "high": 4359.4, "low": 4352.8,
-                "close": 4353.67, "tick_volume": 1842,
-            },
-        ],
+        "market": {"bid": 110.0, "ask": 110.42, "spread_points": 42},
+        "candles": candles,
         "account": {"balance": 1000.0, "equity": 998.5, "free_margin": 950.2},
         "position": {
             "status": "NONE", "type": "NONE", "volume": 0.0,
             "open_price": 0.0, "profit": 0.0,
         },
-        "timestamp": "2026-09-22T07:15:00",
+        "timestamp": "2026-09-22T09:00:00",
     }
 
 
@@ -50,8 +53,8 @@ def test_snapshot_returns_wait_and_preserves_candle_sequence() -> None:
     assert latest.status_code == 200
     payload = latest.json()
     assert payload["symbol"] == "XAUUSD_l"
-    assert len(payload["candles"]) == 2
-    assert payload["candles"][-1]["close"] == 4353.67
+    assert len(payload["candles"]) == 11
+    assert payload["candles"][-1]["close"] == 110.0
     assert payload["account"]["balance"] == 1000.0
 
 
@@ -59,7 +62,10 @@ def test_build_market_features() -> None:
     snapshot = MarketSnapshot.model_validate(sample_snapshot())
     features = build_market_features(snapshot)
 
-    assert features.return_1 == (4353.67 - 4357.0) / 4357.0
-    assert features.candle_range == 4359.4 - 4352.8
-    assert features.candle_body == 4353.67 - 4357.0
-    assert features.body_to_range == features.candle_body / features.candle_range
+    assert features.return_1 == (110.0 - 109.0) / 109.0
+    assert features.return_3 == (110.0 - 107.0) / 107.0
+    assert features.return_5 == (110.0 - 105.0) / 105.0
+    assert features.return_10 == (110.0 - 100.0) / 100.0
+    assert features.candle_range == 2.0
+    assert features.candle_body == 0.5
+    assert features.body_to_range == 0.25
