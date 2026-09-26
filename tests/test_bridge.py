@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 
 from metatrader_llm_lab.bridge.app import app
+from metatrader_llm_lab.bridge.schemas import MarketSnapshot
+from metatrader_llm_lab.features.market import build_market_features
 
 client = TestClient(app)
 
@@ -51,3 +53,13 @@ def test_snapshot_returns_wait_and_preserves_candle_sequence() -> None:
     assert len(payload["candles"]) == 2
     assert payload["candles"][-1]["close"] == 4353.67
     assert payload["account"]["balance"] == 1000.0
+
+
+def test_build_market_features() -> None:
+    snapshot = MarketSnapshot.model_validate(sample_snapshot())
+    features = build_market_features(snapshot)
+
+    assert features.return_1 == (4353.67 - 4357.0) / 4357.0
+    assert features.candle_range == 4359.4 - 4352.8
+    assert features.candle_body == 4353.67 - 4357.0
+    assert features.body_to_range == features.candle_body / features.candle_range
